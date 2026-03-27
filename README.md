@@ -1,201 +1,158 @@
-# 🚀 AI Financial Intelligence Platform (RAG + GenAI)
+# 🤖 AI Financial Assistant
 
-## 📌 Overview
-
-This project is an industry-level AI system that analyzes financial documents and provides intelligent insights using **Retrieval-Augmented Generation (RAG)**.
-
-Unlike basic stock apps, this system focuses on:
-
-* Understanding financial reports
-* Providing explainable insights
-* Answering investment-related queries
+An end-to-end AI-powered financial assistant that combines Retrieval-Augmented Generation (RAG), real-time stock analysis, and financial news sentiment analysis into a single intelligent system.
 
 ---
 
-## 🧠 Key Features
+## 🚀 Features
 
-* 📄 Financial Document Analysis (PDF/TXT)
-* 🔍 RAG-based intelligent retrieval
-* 📊 Risk assessment (Low / Medium / High)
-* 💬 Conversational AI assistant
-* 📚 Source-backed responses (no hallucination)
-* ⚡ FastAPI backend (production-ready)
-* 🎯 Streamlit frontend (interactive UI)
-
----
-
-## 🏗️ Architecture
-
-```
-Streamlit (Frontend)
-        ↓
-FastAPI (Backend API)
-        ↓
-LangChain RAG Pipeline
-        ↓
-FAISS Vector Database
-        ↓
-Financial Reports / Data
-```
+### 📄 Financial Report Analysis (RAG)
+- Upload PDF/TXT financial reports
+- Extract insights using LLM + vector database
+- Provides:
+  - Summary
+  - Key insights
+  - Risks
+  - Investment recommendation
 
 ---
 
-## 📁 Project Structure
-
-```
-ai-finance-rag/
-│
-├── backend/
-│   ├── api/
-│   ├── services/
-│   ├── core/
-│   ├── models/
-│   ├── utils/
-│
-├── frontend/
-│   └── app.py
-│
-├── data/
-│   ├── reports/
-│   ├── news/
-│
-├── vector_db/
-├── logs/
-├── .env
-├── requirements.txt
-├── Dockerfile
-├── README.md
-```
+### 📊 Real-Time Stock Analysis
+- Fetches live stock data using yfinance
+- Supports Indian stocks (e.g., INFY.NS, TCS.NS)
+- Outputs:
+  - Current price
+  - Monthly trend
+  - Key metrics (PE, Market Cap, Sector)
+  - Investment signal (Strong / Moderate / Weak)
 
 ---
 
-## ⚙️ Setup Instructions
-
-### 1️⃣ Clone Repository
-
-```
-git clone https://github.com/your-username/ai-finance-rag.git
-cd ai-finance-rag
-```
-
----
-
-### 2️⃣ Create Virtual Environment
-
-```
-python -m venv venv
-venv\Scripts\activate   # Windows
-```
+### 📰 Financial News Sentiment Analysis
+- Fetches latest finance-related news using News API
+- Filters relevant business/economic articles
+- Generates:
+  - Sentiment (Positive / Negative / Neutral)
+  - Highlights
+  - Investment impact
+  - Overall market sentiment
 
 ---
 
-### 3️⃣ Install Dependencies
-
-```
-pip install -r requirements.txt
-```
-
----
-
-### 4️⃣ Add Environment Variables
-
-Create `.env` file:
-
-```
-OPENAI_API_KEY=your_api_key_here
-```
+### 🧠 Intelligent Query Routing
+- Automatically detects user intent:
+  - Stock queries → Stock module
+  - Report queries → RAG pipeline
+  - News queries → News service
+- Ensures accurate and relevant responses
 
 ---
 
-### 5️⃣ Add Data
+## 🏗️ Tech Stack
 
-Place your files inside:
+Backend:
+- FastAPI
+- LangChain
+- FAISS (Vector Database)
+- OpenAI API
 
-```
-data/reports/
-```
+Frontend:
+- Streamlit
 
-Example:
-
-* financial reports
-* company analysis documents
-
----
-
-### 6️⃣ Run Data Pipeline (Create Vector DB)
-
-```
-python -m backend.services.pipeline
-```
+Data Sources:
+- yfinance (Stock data)
+- NewsAPI (Financial news)
 
 ---
 
-### 7️⃣ Start Backend
+## 📂 Project Structure
 
-```
-uvicorn backend.api.main:app --reload
-```
+ai_project/
 
----
+backend/
+- api/
+- services/
+- pipeline/
+- config/
 
-### 8️⃣ Start Frontend
+frontend/
+- app.py
 
-```
-streamlit run frontend/app.py
-```
+data/
+- reports/
 
----
-
-## 🎯 Example Queries
-
-* "Summarize the financial report"
-* "What are the risks in this company?"
-* "Should I invest in this company?"
-* "Give investment insights based on report"
+requirements.txt
+README.md
 
 ---
 
-## 🧠 How It Works
+## ⚙️ Installation
 
-1. Documents are loaded and split into chunks
-2. Embeddings are created using OpenAI
-3. Stored in FAISS vector database
-4. User query → retrieves relevant chunks
-5. LLM generates answer with context
+git clone https://github.com/your-username/ai-financial-assistant.git  
+cd ai-financial-assistant  
 
----
+python -m venv venv  
+venv\Scripts\activate  
 
-## 🚀 Future Enhancements
-
-* 📈 Real-time stock data integration (`yfinance`)
-* 📰 News sentiment analysis
-* 📊 Portfolio analysis dashboard
-* 🔐 User authentication
-* ☁️ Deployment (AWS / Docker / CI-CD)
+pip install -r requirements.txt  
 
 ---
 
-## 💡 Tech Stack
+## 🔑 Environment Variables
 
-* Python
-* FastAPI
-* Streamlit
-* LangChain
-* FAISS (Vector DB)
-* OpenAI API
-* Docker
+Create a .env file and add:
+
+OPENAI_API_KEY=your_openai_key  
+NEWS_API_KEY=your_news_api_key  
 
 ---
 
-## 📌 Resume Description
+## ▶️ Run Locally
 
-> Built an AI-powered Financial Intelligence Platform using LangChain, RAG, FastAPI, and Streamlit to analyze financial documents and generate explainable investment insights with vector database retrieval.
+Backend:
+
+uvicorn backend.api.main:app --reload  
+
+Frontend:
+
+streamlit run frontend/app.py  
 
 ---
 
-## 👨‍💻 Author
+## 🌐 Deployment
 
-Your Name
-GitHub: https://github.com/your-username
+Backend:
+- Render  
+
+Frontend:
+- Streamlit Cloud  
 
 ---
+
+## 🧪 Example Queries
+
+- Analyze INFY.NS  
+- Should I invest in TCS.NS?  
+- Summarize this report  
+- What are the risks?  
+- Show latest news  
+
+---
+
+## 🧠 Key Highlights
+
+- Multi-modal AI system (RAG + API + LLM)
+- Real-time financial data integration
+- Explainable investment insights
+- Clean and interactive UI
+
+---
+
+## 📌 Future Improvements
+
+- Stock comparison (INFY vs TCS)
+- Advanced financial ratios
+- Portfolio recommendations
+- Trend prediction using ML
+
+
