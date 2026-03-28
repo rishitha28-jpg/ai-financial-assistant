@@ -12,15 +12,13 @@ load_dotenv()
 
 class RAGService:
     def __init__(self):
-        try:
-            self.db = EmbeddingService().load_vector_db()
-            self.retriever = self.db.as_retriever(search_kwargs={"k": 5})
-        except Exception as e:
-            logging.error(f"Vector DB load failed: {str(e)}")
-            self.db = None
-            self.retriever = None
+        self.db = None
+        self.retriever = None
 
         self.news_service = NewsService()
+
+        if not os.getenv("GROQ_API_KEY"):
+            raise ValueError("❌ GROQ_API_KEY missing in .env")
 
         self.llm = ChatGroq(
             groq_api_key=os.getenv("GROQ_API_KEY"),
@@ -28,90 +26,70 @@ class RAGService:
             temperature=0
         )
 
-        logging.info("✅ RAG Service initialized")
+        logging.info("✅ RAG initialized")
 
     # -------------------------------
-    # 🔍 TICKER EXTRACTION (FIXED)
+    # RETRIEVER
+    # -------------------------------
+    def load_retriever(self):
+        try:
+            if self.retriever is None:
+                self.db = EmbeddingService().load_vector_db()
+
+                self.retriever = self.db.as_retriever(
+                    search_type="similarity",
+                    search_kwargs={"k": 5}
+                )
+
+                logging.info("✅ Retriever ready")
+
+        except Exception as e:
+            logging.error(f"Vector DB error: {str(e)}")
+            self.retriever = None
+
+    # -------------------------------
+    # STOCK
     # -------------------------------
     def extract_ticker(self, question):
-        question = question.upper()
+        match = re.search(r"\b[A-Z]{2,}\.NS\b", question.upper())
+        return match.group() if match else None
 
-        # ✅ Indian stocks
-        match = re.search(r"\b[A-Z]{2,}\.NS\b", question)
-        if match:
-            return match.group()
-
-        # ✅ Optional US stocks (strict)
-        match = re.search(r"\b[A-Z]{2,5}\b", question)
-        if match:
-            ticker = match.group()
-
-            blacklist = {
-                "WHAT", "THIS", "THAT", "SHOULD",
-                "INVEST", "ANALYZE", "SHOW", "NEWS",
-                "LATEST", "PRICE", "TREND", "RISKS",
-                "SUMMARY", "SUMMARIZE", "REPORT",
-                "THE", "AND", "FOR", "WITH"
-            }
-
-            if ticker in blacklist:
-                return None
-
-            # Only allow if clearly stock intent
-            if ".NS" not in question and "stock" not in question.lower():
-                return None
-
-            return ticker
-
-        return None
-
-    # -------------------------------
-    # 📊 STOCK ANALYSIS
-    # -------------------------------
     def analyze_stock(self, question):
         try:
             ticker = self.extract_ticker(question)
 
             if not ticker:
-                return {"answer": "⚠️ Mention stock like INFY.NS", "sources": []}
+                return {"answer": "⚠️ Use format like INFY.NS", "sources": []}
 
             stock = yf.Ticker(ticker)
             hist = stock.history(period="1mo")
 
             if hist is None or hist.empty:
-                return {"answer": f"⚠️ No stock data for {ticker}", "sources": ["yfinance"]}
+                return {"answer": "⚠️ No stock data", "sources": []}
 
-            close = hist["Close"].dropna()
-
-            current_price = close.iloc[-1]
-            change = current_price - close.iloc[0]
+            close = hist["Close"]
+            current = close.iloc[-1]
+            change = current - close.iloc[0]
 
             if change > 20:
-                trend = "Strong Uptrend 📈"
-                signal = "Strong 📈"
+                trend, signal = "Strong Uptrend 📈", "Strong"
             elif change > 0:
-                trend = "Mild Uptrend 📊"
-                signal = "Moderate 📊"
+                trend, signal = "Uptrend 📊", "Moderate"
             elif change > -20:
-                trend = "Mild Downtrend 📊"
-                signal = "Moderate 📊"
+                trend, signal = "Downtrend 📊", "Moderate"
             else:
-                trend = "Strong Downtrend 📉"
-                signal = "Weak 📉"
+                trend, signal = "Strong Downtrend 📉", "Weak"
 
-            info = stock.info
+            info = stock.info or {}
 
             market_cap = info.get("marketCap")
-            if market_cap:
-                market_cap = f"₹{market_cap/1e7:.2f} Cr"
-            else:
-                market_cap = "N/A"
+            market_cap = f"₹{market_cap/1e7:.2f} Cr" if market_cap else "N/A"
 
             return {
                 "answer": f"""
 📊 Stock Analysis: {ticker}
 
-Current Price: ₹{current_price:.2f}
+Current Price: ₹{current:.2f}
 Change (1 Month): ₹{change:.2f}
 Trend: {trend}
 
@@ -119,20 +97,25 @@ Trend: {trend}
 - Market Cap: {market_cap}
 - PE Ratio: {info.get("trailingPE", "N/A")}
 - Sector: {info.get("sector", "N/A")}
+- 52W High: {info.get("fiftyTwoWeekHigh", "N/A")}
+- 52W Low: {info.get("fiftyTwoWeekLow", "N/A")}
 
 🎯 Investment Signal: {signal}
 
-⚠️ Not financial advice.
+Reason:
+- Based on price trend and momentum
+- Market behavior over last 1 month
+
+⚠️ Not financial advice
 """,
                 "sources": ["yfinance"]
             }
 
         except Exception as e:
-            logging.error(f"Stock error: {str(e)}")
-            return {"answer": "⚠️ Stock error", "sources": []}
+            return {"answer": f"⚠️ Stock error: {str(e)}", "sources": []}
 
     # -------------------------------
-    # 📰 NEWS
+    # NEWS
     # -------------------------------
     def analyze_news(self, question):
         try:
@@ -141,88 +124,122 @@ Trend: {trend}
             if not news:
                 return {"answer": "⚠️ No news found", "sources": []}
 
-            response = self.llm.invoke(f"""
-Analyze sentiment:
+            prompt = f"""
+Analyze financial news.
 
+News:
 {news}
 
 Give:
-1. Sentiment
-2. Highlights
+1. Sentiment per article
+2. Key highlights
 3. Investment impact
-""")
+4. Overall sentiment
+"""
 
-            return {"answer": response.content, "sources": news}
+            response = self.llm.invoke(prompt)
+            answer = response.content if hasattr(response, "content") else str(response)
+
+            return {
+                "answer": answer,
+                "sources": news
+            }
 
         except Exception as e:
-            logging.error(f"News error: {str(e)}")
-            return {"answer": "⚠️ News error", "sources": []}
+            return {"answer": f"⚠️ News error: {str(e)}", "sources": []}
 
     # -------------------------------
-    # 🧠 RAG
+    # RAG (FINAL FIXED)
     # -------------------------------
     def handle_rag(self, question, history):
         try:
+            self.load_retriever()
+
             if not self.retriever:
                 return {"answer": "⚠️ Upload documents first", "sources": []}
 
             docs = self.retriever.invoke(question)
 
-            context = "\n".join(set([doc.page_content for doc in docs]))
+            if not docs:
+                return {"answer": "⚠️ No relevant content found", "sources": []}
+
+            if not isinstance(docs, list):
+                docs = [docs]
+
+            context = "\n\n".join(doc.page_content for doc in docs)
+
+            if not context.strip():
+                return {"answer": "⚠️ Empty document content", "sources": []}
 
             prompt = f"""
-You are a STRICT financial analyst.
+You are a financial analyst.
+
+Answer ONLY from the provided context.
+
+Always follow this structure:
+
+1. Summary
+2. Key Insights
+3. Risks
+4. Recommendation
+5. Investment Signal (Strong / Moderate / Weak)
 
 Rules:
-- Use ONLY the given context
+- Do NOT skip sections
 - Do NOT hallucinate
-- If not present → say "Not mentioned in report"
+- Extract as much information as possible from context
+- Do NOT say "Not mentioned" unless absolutely no information exists
+- Always try to infer insights from numbers (revenue, profit, EPS, growth)
+- Investment Signal must ALWAYS be given based on analysis
 
 Context:
 {context}
 
 Question:
 {question}
-
-Answer format:
-1. Summary
-2. Key Insights
-3. Risks
-4. Recommendation
-5. Investment Signal (Strong/Moderate/Weak)
 """
+            response = self.llm.invoke([
+                {
+                    "role": "system",
+                    "content": "You are a strict financial analyst. Always return full structured output."
+                },
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ])
 
-            response = self.llm.invoke(prompt)
+            answer = response.content if hasattr(response, "content") else str(response)
+
+            sources = list(set(
+                doc.metadata.get("source", "unknown")
+                for doc in docs
+            ))
 
             return {
-                "answer": response.content,
-                "sources": list({
-                    doc.metadata.get("source"): doc.metadata
-                    for doc in docs
-                }.values())
+                "answer": answer,
+                "sources": sources
             }
 
         except Exception as e:
             logging.error(f"RAG error: {str(e)}")
-            return {"answer": "⚠️ RAG error", "sources": []}
+            return {"answer": f"⚠️ RAG error: {str(e)}", "sources": []}
 
     # -------------------------------
-    # 🚦 ROUTER
+    # ROUTER
     # -------------------------------
     def query(self, question, history=None):
         try:
-            q = question.lower()
+            if not question:
+                return {"answer": "⚠️ Empty question", "sources": []}
 
-            ticker = self.extract_ticker(question)
-
-            if ticker:
+            if re.search(r"\b[A-Z]{2,}\.NS\b", question.upper()):
                 return self.analyze_stock(question)
 
-            if "news" in q:
+            if "news" in question.lower():
                 return self.analyze_news(question)
 
             return self.handle_rag(question, history)
 
         except Exception as e:
-            logging.error(f"Query error: {str(e)}")
-            return {"answer": "⚠️ Internal error", "sources": []}
+            return {"answer": f"⚠️ Internal error: {str(e)}", "sources": []}
