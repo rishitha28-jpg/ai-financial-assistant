@@ -18,3 +18,27 @@ pypdf
 python-dotenv
 requests
 yfinance
+fastapi
+uvicorn
+streamlit
+
+langchain
+langchain-community
+langchain-core
+langchain-text-splitters
+langchain-groq
+
+groq
+
+faiss-cpu
+
+sentence-transformers
+
+pypdf
+python-dotenv
+requests
+yfinance
+
+# ✅ ADDED (IMPORTANT)
+pydantic
+newsapi-python
