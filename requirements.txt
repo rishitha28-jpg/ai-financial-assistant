@@ -43,3 +43,4 @@ yfinance
 # ✅ ADDED (IMPORTANT)
 pydantic
 newsapi-python
+python-multipart
